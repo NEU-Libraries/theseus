@@ -42,6 +42,8 @@ module Theseus
     end
 
     def atlas_url = @env.fetch("ATLAS_URL")
+    # Cerberus, for the links the TUI shows. Optional.
+    def cerberus_url = (value("CERBERUS_URL") || "http://localhost:3000").chomp("/")
     def v1_url = @env.fetch("V1_URL")
     def v1_jwt = @env.fetch("V1_JWT")
 

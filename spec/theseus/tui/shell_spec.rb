@@ -1,17 +1,26 @@
 # frozen_string_literal: true
 
+require "tmpdir"
 require_relative "../../support_tui"
 
 RSpec.describe Theseus::TUI do
   include TUISpecHelpers
 
+  around { |example| Dir.mktmpdir { |dir| (@dir = dir) && example.run } }
+
   let(:out) { StringIO.new }
   let(:prompt) { TTY::Prompt::Test.new }
   let(:atlas) { FakeTUIAtlas.new }
 
-  def tui(env = tui_env)
+  def tui(env = tui_env.merge("THESEUS_RUN_DIR" => @dir))
     described_class.new(config: Theseus::Config.new(env), out: out, prompt: prompt, atlas: atlas,
-                        now: tui_now, tty: false, pastel: Pastel.new(enabled: false))
+                        v1: FakeTUIV1.new, now: tui_now, tty: false, pastel: Pastel.new(enabled: false))
+  end
+
+  # Past the header: one pid, decline the plan, and quit.
+  before do
+    prompt.input << "neu:cf\nn\nn\n"
+    prompt.input.rewind
   end
 
   it "draws the header from the pre-flight checks" do
