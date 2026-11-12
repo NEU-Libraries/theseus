@@ -47,6 +47,27 @@ RSpec.describe Theseus::Lineage do
     expect(client.calls).not_to include("neu:466")
   end
 
+  it "reports each lookup, and each object once its links check out" do
+    events = []
+    known = { "neu:466" => :community }
+    described_class.new(client, known: known.method(:[]), listener: events.method(:<<)).walk("neu:cj82kh734")
+
+    expect(events.map { |e| [e.name, e.payload[:pid] || e[:object].pid] }).to eq([
+      [:lookup_started, "neu:cj82kh734"], [:looked_up, "neu:cj82kh734"],
+      [:lookup_started, "neu:rx918554d"], [:looked_up, "neu:rx918554d"],
+      [:lookup_started, "neu:6002"], [:looked_up, "neu:6002"]
+    ])
+  end
+
+  it "leaves the parent's lookup open when the link to it fails" do
+    add("neu:bad", "CoreFile", "neu:466")
+    events = []
+    walk = -> { described_class.new(client, listener: events.method(:<<)).walk("neu:bad") }
+    expect(&walk).to raise_error(Theseus::FindingError, /neu:bad: invalid_parent_type/)
+    expect(events.map { |e| [e.name, e.payload[:pid] || e[:object].pid] })
+      .to eq([[:lookup_started, "neu:bad"], [:looked_up, "neu:bad"], [:lookup_started, "neu:466"]])
+  end
+
   it "walks nothing when the pid itself is known" do
     chain = described_class.new(client, known: { "neu:6002" => :collection }.method(:[])).walk("neu:6002")
     expect(chain.objects).to be_empty

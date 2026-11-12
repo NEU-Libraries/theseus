@@ -90,7 +90,7 @@ module Theseus
         @err.puts("theseus: ignoring #{obsolete.join(', ')}; Theseus now asks Atlas for neu:1.") if obsolete.any?
         require_relative "atlas_gateway" # loads atlas_rb, which only import needs
         Importer.new(v1: client, atlas: AtlasGateway.new, log: RunLog.new(config.run_dir),
-                     mods_dir: File.join(config.run_dir, "mods"), out: @out)
+                     mods_dir: File.join(config.run_dir, "mods"), listener: CLIListener.new(@out))
                 .run(pid, into: options[:into], force: options[:force])
       end
   end

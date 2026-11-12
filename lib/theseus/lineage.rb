@@ -25,9 +25,10 @@ module Theseus
 
     # known - called with a pid; answers its type (:community, :collection,
     #   :core_file) when v2 already has it, else nil.
-    def initialize(client, known: ->(_pid) {})
+    def initialize(client, known: ->(_pid) {}, listener: NULL_LISTENER)
       @client = client
       @known = known
+      @listener = listener
     end
 
     def walk(pid)
@@ -45,9 +46,11 @@ module Theseus
         raise FindingError.new(pid, "ancestry_too_deep", "more than #{MAX_DEPTH} levels") if objects.size >= MAX_DEPTH
 
         seen[current] = true
+        emit(:lookup_started, pid: current)
         object = V1Object.from_solr(@client.solr_document(current))
         check_type!(object)
         check_link!(objects.last, object.type) if objects.any?
+        emit(:looked_up, object: object)
         objects << object
 
         return Chain.new(objects: objects, anchor_pid: nil, anchor_type: nil) if object.parent_pid.nil?
@@ -57,6 +60,8 @@ module Theseus
     end
 
     private
+
+      def emit(name, **payload) = @listener.call(Event.new(name, payload))
 
       def check_type!(object)
         return if object.type

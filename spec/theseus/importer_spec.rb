@@ -105,8 +105,22 @@ RSpec.describe Theseus::Importer do
 
   let(:log) { Theseus::RunLog.new(File.join(@dir, "runs")) }
   let(:out) { StringIO.new }
+  let(:events) { [] }
+  let(:listener) do
+    cli = Theseus::CLIListener.new(out)
+    ->(event) { events << event && cli.call(event) }
+  end
   let(:importer) do
-    described_class.new(v1: v1, atlas: atlas, log: log, mods_dir: File.join(@dir, "runs", "mods"), out: out)
+    described_class.new(v1: v1, atlas: atlas, log: log, mods_dir: File.join(@dir, "runs", "mods"),
+                        listener: listener)
+  end
+
+  # Each event as [name, the pid it is about, the NOID if any].
+  def trail
+    events.map do |e|
+      pid = e.payload[:pid] || e.payload[:object]&.pid
+      [e.name, pid, e.payload[:noid]].compact
+    end
   end
 
   def logged = File.exist?(log.path) ? CSV.read(log.path, headers: true).map { |r| r.to_h.except("at") } : []
@@ -125,6 +139,46 @@ RSpec.describe Theseus::Importer do
       %w[neu:466 c1 community created], %w[neu:col c2 collection created], %w[neu:cf w3 work created]
     ])
     expect(File).to exist(File.join(@dir, "runs", "mods", "neu_cf.xml"))
+  end
+
+  it "reports each step of a full chain, in order" do
+    importer.run("neu:cf")
+
+    expect(trail).to eq([
+      [:lookup_started, "neu:cf"], [:looked_up, "neu:cf"],
+      [:lookup_started, "neu:col"], [:looked_up, "neu:col"],
+      [:lookup_started, "neu:466"], [:looked_up, "neu:466"],
+      [:anchor_reached, "neu:1", "root"],
+      [:mods_checked, "neu:466"], [:mods_checked, "neu:col"], [:mods_checked, "neu:cf"],
+      [:create_started, "neu:466"], [:created, "neu:466", "c1"],
+      [:create_started, "neu:col"], [:created, "neu:col", "c2"],
+      [:create_started, "neu:cf"], [:completed, "neu:cf", "w3"], [:created, "neu:cf", "w3"]
+    ])
+    expect(events.find { |e| e.name == :completed }[:handle]).to eq("2047/D1")
+    expect(out.string).to eq(<<~TEXT)
+      neu:466 -> c1 (community) neu:466
+      neu:col -> c2 (collection) neu:col
+      neu:cf -> w3 (work) neu:cf
+    TEXT
+  end
+
+  it "reports only the Work's steps for a sibling" do
+    importer.run("neu:cf")
+    events.clear
+    importer.run("neu:cf2")
+
+    expect(trail).to eq([
+      [:lookup_started, "neu:cf2"], [:looked_up, "neu:cf2"], [:anchor_reached, "neu:col", "c2"],
+      [:mods_checked, "neu:cf2"],
+      [:create_started, "neu:cf2"], [:completed, "neu:cf2", "w4"], [:created, "neu:cf2", "w4"]
+    ])
+  end
+
+  it "reports no create after a finding" do
+    records["neu:cf"][2] = mods
+    expect { importer.run("neu:cf") }.to raise_error(Theseus::FindingError)
+    expect(trail.last).to eq([:mods_checked, "neu:col"])
+    expect(events.map(&:name)).not_to include(:create_started)
   end
 
   it "creates only the Work for a sibling whose Collection Atlas holds" do

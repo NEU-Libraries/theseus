@@ -20,12 +20,12 @@ module Theseus
     ROOT_PID = "neu:1"
     ATLAS_TYPES = { "Community" => :community, "Collection" => :collection, "Work" => :core_file }.freeze
 
-    def initialize(v1:, atlas:, log:, mods_dir:, out: $stdout)
+    def initialize(v1:, atlas:, log:, mods_dir:, listener: NULL_LISTENER)
       @v1 = v1
       @atlas = atlas
       @log = log
       @mods_dir = mods_dir
-      @out = out
+      @listener = listener
     end
 
     def run(pid, into: nil, force: false)
@@ -39,7 +39,6 @@ module Theseus
       objects, parent_noid = plan(pid, into)
       exports = objects.map { |object| export(object) }
       exports.each { |item| parent_noid = create(item, parent_noid, existing) }
-      @out.puts("#{pid}: nothing to create") if exports.empty?
     end
 
     private
@@ -55,13 +54,15 @@ module Theseus
         check_root!
         # With --force Atlas already holds the pid itself, so it must not end the walk.
         known = ->(candidate) { candidate == pid ? nil : holder(candidate)&.type }
-        chain = Lineage.new(@v1, known: known).walk(pid)
+        chain = Lineage.new(@v1, known: known, listener: @listener).walk(pid)
         unless chain.anchor_pid
           top = chain.objects.last.pid
           raise FindingError.new(pid, "unanchored", "the chain ends at #{top}, which Atlas does not hold")
         end
 
-        [chain.top_down, holder(chain.anchor_pid).noid]
+        anchor_noid = holder(chain.anchor_pid).noid
+        emit(:anchor_reached, pid: chain.anchor_pid, noid: anchor_noid)
+        [chain.top_down, anchor_noid]
       end
 
       def check_root!
@@ -108,11 +109,13 @@ module Theseus
         FileUtils.mkdir_p(@mods_dir)
         path = File.join(@mods_dir, "#{object.pid.tr(':', '_')}.xml")
         File.write(path, xml)
+        emit(:mods_checked, pid: object.pid, handle: handle)
         Export.new(object, path, handle)
       end
 
       def create(item, parent_noid, existing)
         object = item.object
+        emit(:create_started, object: object, parent_noid: parent_noid)
         noid, outcome =
           if object.type == :core_file
             noid = create_work(item, parent_noid)
@@ -121,8 +124,7 @@ module Theseus
             create_container(item, parent_noid)
           end
         @log.append(object.pid, noid, object.map_type, outcome)
-        note = outcome == "created" ? "" : " [#{outcome}]"
-        @out.puts("#{object.pid} -> #{noid} (#{object.map_type}) #{object.title}#{note}")
+        emit(:created, object: object, noid: noid, outcome: outcome)
         noid
       end
 
@@ -176,6 +178,7 @@ module Theseus
         atlas(pid, noid) { @atlas.complete(noid) }
         after = atlas(pid, noid) { @atlas.find_work(noid) }
         check_handle!(pid, noid, after, item.handle, "after complete")
+        emit(:completed, pid: pid, noid: noid, handle: item.handle)
         noid
       end
 
@@ -195,6 +198,8 @@ module Theseus
                                   "An Atlas older than 0.6.279 drops it; stopping before anything else is created.",
                              noid: created.fetch("id"))
       end
+
+      def emit(name, **payload) = @listener.call(Event.new(name, payload))
 
       def atlas(pid, noid = nil)
         yield
