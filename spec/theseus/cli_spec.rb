@@ -4,8 +4,15 @@ RSpec.describe Theseus::CLI do
   let(:out) { StringIO.new }
   let(:err) { StringIO.new }
 
-  def run(*argv, env: {})
-    described_class.new(argv, out: out, err: err, env: env).run
+  def run(*argv, env: {}, tty: false)
+    described_class.new(argv, out: out, err: err, env: env, tty: tty).run
+  end
+
+  it "prints usage instead of drawing the TUI into a pipe" do
+    expect(run).to eq(1)
+    expect(run("tui")).to eq(1)
+    expect(err.string).to include("the TUI needs a terminal", "Usage:")
+    expect(out.string).to be_empty
   end
 
   it "prints usage and exits 1 for an unknown command" do

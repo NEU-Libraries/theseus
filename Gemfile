@@ -11,6 +11,15 @@ gem "csv", "~> 3.3"
 gem "dotenv", "~> 3.1"
 gem "rexml", "~> 3.4"
 
+# The TUI (bin/theseus with no arguments). reline is here so Ruby 3.4
+# prints no warning about it in the middle of the screen.
+gem "pastel", "~> 0.8"
+gem "reline", "~> 0.6"
+gem "tty-box", "~> 0.7"
+gem "tty-prompt", "~> 0.23"
+gem "tty-spinner", "~> 0.9"
+gem "tty-table", "~> 0.12"
+
 group :test do
   gem "rspec", "~> 3.13"
   gem "webmock", "~> 3.24"

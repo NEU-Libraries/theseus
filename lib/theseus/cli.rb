@@ -8,6 +8,7 @@ module Theseus
   class CLI
     USAGE = <<~TEXT
       Usage:
+        theseus                            the guided TUI, for demos (also: theseus tui)
         theseus lookup PID                 print the v1 chain from PID up to neu:1
         theseus export PID                 print PID's v1 MODS
         theseus import PID [--into NOID] [--force]
@@ -16,14 +17,17 @@ module Theseus
 
     COMMANDS = %w[lookup export import].freeze
 
-    def initialize(argv, out: $stdout, err: $stderr, env: ENV)
+    def initialize(argv, out: $stdout, err: $stderr, env: ENV, tty: $stdin.tty? && $stdout.tty?)
       @argv = argv.dup
       @out = out
       @err = err
       @env = env
+      @tty = tty
     end
 
     def run
+      return run_tui if @argv.empty? || @argv == ["tui"]
+
       options = parse_options
       command, pid = @argv
       return usage_error unless COMMANDS.include?(command) && pid && @argv.size == 2
@@ -55,6 +59,14 @@ module Theseus
       end
 
       def config = @config ||= Config.new(@env)
+
+      # A TUI drawn into a pipe is noise, so off a terminal this is a usage error.
+      def run_tui
+        return usage_error("the TUI needs a terminal; use a command below instead") unless @tty
+
+        require_relative "tui" # loads the TTY toolkit and atlas_rb, which only the TUI needs
+        TUI.new(config: config, out: @out).run
+      end
 
       def v1_client = config.v1_reader
 

@@ -15,9 +15,9 @@ module Theseus
       @env = env
     end
 
-    def require_v1!
+    def require_v1!(now: -> { Time.now })
       require_vars!(V1_VARS)
-      V1Token.new(v1_jwt).check!
+      V1Token.new(v1_jwt, now: now).check!
       self
     end
 
@@ -41,6 +41,7 @@ module Theseus
       record_dir ? V1Recorder.new(client, record_dir) : client
     end
 
+    def atlas_url = @env.fetch("ATLAS_URL")
     def v1_url = @env.fetch("V1_URL")
     def v1_jwt = @env.fetch("V1_JWT")
 

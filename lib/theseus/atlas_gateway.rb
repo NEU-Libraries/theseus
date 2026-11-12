@@ -61,6 +61,10 @@ module Theseus
     end
 
     def find_work(noid) = guard { AtlasRb::Work.find(noid) }
+    def find_community(noid) = guard { AtlasRb::Community.find(noid) }
+
+    # Atlas's readiness: "ok", "degraded" or "unavailable". Needs no token.
+    def health = guard { AtlasRb::Health.read.fetch("status") }
 
     private
 
