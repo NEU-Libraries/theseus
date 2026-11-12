@@ -2,6 +2,8 @@
 /.bundle/
 /vendor/
 /tmp/
-# The pid -> NOID map and the exported MODS a run leaves behind.
+# The run log and the exported MODS a run leaves behind.
 /runs/
+# Recorded v1 answers for replayed demos. They hold production MODS.
+/recordings/
 *.csv

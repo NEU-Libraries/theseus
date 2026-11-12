@@ -26,6 +26,21 @@ module Theseus
       self
     end
 
+    def replay_dir = value("THESEUS_V1_REPLAY")
+    def record_dir = value("THESEUS_V1_RECORD")
+    def replay? = !replay_dir.nil?
+
+    # Where v1 answers come from: a recording (THESEUS_V1_REPLAY), which needs
+    # no token, or live v1, saving each answer when THESEUS_V1_RECORD is set.
+    def v1_reader
+      raise ConfigError, "Set THESEUS_V1_REPLAY or THESEUS_V1_RECORD, not both." if replay? && record_dir
+      return V1Replay.new(replay_dir) if replay?
+
+      require_v1!
+      client = V1Client.new(base_url: v1_url, token: v1_jwt)
+      record_dir ? V1Recorder.new(client, record_dir) : client
+    end
+
     def v1_url = @env.fetch("V1_URL")
     def v1_jwt = @env.fetch("V1_JWT")
 
@@ -38,6 +53,11 @@ module Theseus
     def obsolete_vars = OBSOLETE_VARS.reject { |name| @env[name].to_s.strip.empty? }
 
     private
+
+      def value(name)
+        text = @env[name].to_s.strip
+        text.empty? ? nil : text
+      end
 
       def require_vars!(names)
         missing = names.select { |name| @env[name].to_s.strip.empty? }

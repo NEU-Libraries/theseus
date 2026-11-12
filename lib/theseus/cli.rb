@@ -56,10 +56,7 @@ module Theseus
 
       def config = @config ||= Config.new(@env)
 
-      def v1_client
-        config.require_v1!
-        V1Client.new(base_url: config.v1_url, token: config.v1_jwt)
-      end
+      def v1_client = config.v1_reader
 
       def run_lookup(pid, _options)
         chain = Lineage.new(v1_client).walk(pid)

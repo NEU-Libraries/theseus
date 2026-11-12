@@ -22,6 +22,14 @@ module Theseus
     BLOCKED = [403, 418, 503].freeze
     COOKIE = "_shibsession_theseus=1"
 
+    # Refuses anything that is not a v1 pid, before it reaches a URL or a
+    # file name.
+    def self.check_pid!(pid)
+      return pid if PID.match?(pid.to_s)
+
+      raise FindingError.new(pid, "invalid_pid", "not a v1 pid (expected neu:...)")
+    end
+
     def initialize(base_url:, token:, min_interval: MIN_INTERVAL,
                    clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) },
                    sleeper: ->(seconds) { sleep(seconds) })
@@ -53,11 +61,7 @@ module Theseus
 
     private
 
-      def check_pid(pid)
-        return pid if PID.match?(pid)
-
-        raise FindingError.new(pid, "invalid_pid", "not a v1 pid (expected neu:...)")
-      end
+      def check_pid(pid) = self.class.check_pid!(pid)
 
       def get(pid, path, query)
         pace!
