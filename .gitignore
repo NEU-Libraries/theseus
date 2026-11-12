@@ -1,0 +1,7 @@
+/.env
+/.bundle/
+/vendor/
+/tmp/
+# The pid -> NOID map and the exported MODS a run leaves behind.
+/runs/
+*.csv
