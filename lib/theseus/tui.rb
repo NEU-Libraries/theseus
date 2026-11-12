@@ -28,17 +28,54 @@ module Theseus
       @status = Preflight.new(@config, atlas: @atlas, now: @now).run
       @v1 ||= @config.v1_reader
       @screen.header(@status)
-      loop do
-        migrate(ask_pid)
-        break unless @prompt.yes?("Migrate another?")
-      end
-      0
     rescue ConfigError, V1AuthError => e
       stop_box("Theseus cannot start", e)
       e.exit_status
+    else
+      guided_runs
     end
 
     private
+
+      # A finding is about the v1 record, so the presenter can pick another
+      # pid. Anything else means the run cannot safely go on, so the only
+      # choice left is to quit.
+      def guided_runs
+        loop do
+          begin
+            migrate(ask_pid)
+          rescue FindingError => e
+            finding_box(e)
+            next
+          rescue V1BlockedError, V1Error => e
+            return quit(e, "v1 refused", "#{e.message}\n\nTheseus has stopped talking to v1. To go on with " \
+                                         "the demo, restart in replay mode (THESEUS_V1_REPLAY).")
+          rescue AtlasError => e
+            return quit(e, "Atlas refused", atlas_text(e))
+          rescue ConfigError, V1AuthError => e
+            return quit(e, "Theseus has to stop", "#{e.message}\n\nFix .env and start Theseus again.")
+          end
+          break unless @prompt.yes?("Migrate another?")
+        end
+        0
+      end
+
+      def finding_box(error)
+        @screen.box("Not migrated: #{error.code}", "#{error.pid}\n#{error.detail}\n\nNothing was written to v2.",
+                    :yellow)
+      end
+
+      def atlas_text(error)
+        text = error.message
+        text += "\n\nRemove #{error.noid} in Cerberus before you try this pid again." if error.noid
+        text
+      end
+
+      def quit(error, title, text)
+        @screen.box(title, text, :red)
+        @prompt.keypress("Press any key to quit.")
+        error.exit_status
+      end
 
       def ask_pid
         @screen.puts

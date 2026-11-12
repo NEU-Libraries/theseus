@@ -2,6 +2,13 @@
 
 require "tty/prompt/test"
 require "theseus/tui"
+require "timeout"
+
+# A TUI spec whose answers run out leaves TTY::Prompt asking for ever, so
+# each one fails after 10 seconds instead of hanging the suite.
+RSpec.configure do |config|
+  config.around(:each, file_path: %r{spec/theseus/tui/}) { |example| Timeout.timeout(10) { example.run } }
+end
 
 # A fake Atlas for TUI specs: the gateway's read calls, with a root that
 # holds neu:1. Writes are added by the specs that need them.

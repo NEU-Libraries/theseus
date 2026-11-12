@@ -43,11 +43,12 @@ module Theseus
   # A finding about the v1 record itself. The run stops and reports it; it is
   # not a Theseus bug.
   class FindingError < Error
-    attr_reader :pid, :code
+    attr_reader :pid, :code, :detail
 
     def initialize(pid, code, message)
       @pid = pid
       @code = code
+      @detail = message
       super("#{pid}: #{code}: #{message}")
     end
 
