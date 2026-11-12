@@ -181,6 +181,28 @@ RSpec.describe Theseus::Importer do
     expect(events.map(&:name)).not_to include(:create_started)
   end
 
+  describe "#plan and #execute" do
+    it "plans the creates top-down with no v2 write" do
+      plan = importer.plan("neu:cf")
+
+      expect(plan.objects.map(&:pid)).to eq(%w[neu:466 neu:col neu:cf])
+      expect(plan.anchor_pid).to eq("neu:1")
+      expect(plan.parent_noid).to eq("root")
+      expect(plan.items.last.handle).to eq("2047/D1")
+      expect(atlas.calls).to be_empty
+      expect(File).to exist(File.join(@dir, "runs", "mods", "neu_466.xml"))
+    end
+
+    it "executes a plan as run does, answering each step" do
+      steps = importer.execute(importer.plan("neu:cf"))
+
+      expect(steps.map { |s| [s.object.pid, s.noid, s.outcome] })
+        .to eq([%w[neu:466 c1 created], %w[neu:col c2 created], %w[neu:cf w3 created]])
+      expect(steps.last.handle).to eq("2047/D1")
+      expect(atlas.calls.map(&:first)).to eq(%i[community put_mods collection put_mods create_work put_mods complete])
+    end
+  end
+
   it "creates only the Work for a sibling whose Collection Atlas holds" do
     importer.run("neu:cf")
     atlas.calls.clear

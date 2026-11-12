@@ -28,7 +28,23 @@ module Theseus
       @listener = listener
     end
 
-    def run(pid, into: nil, force: false)
+    # What an import will do, worked out from v1 and Atlas with no v2 write.
+    #   items        - an Export per object to create, top-down
+    #   anchor_pid   - the ancestor Atlas already holds (nil under --into)
+    #   parent_noid  - the NOID the first item is created under
+    #   existing     - what Atlas already holds for the pid (a --force re-run)
+    Plan = Struct.new(:pid, :items, :anchor_pid, :parent_noid, :existing, keyword_init: true) do
+      def objects = items.map(&:object)
+    end
+
+    # One step of an executed plan: the object, its v2 NOID, and whether it
+    # was created, adopted or replayed.
+    Step = Struct.new(:object, :noid, :outcome, :handle)
+
+    def run(pid, into: nil, force: false) = execute(plan(pid, into: into, force: force))
+
+    # The read-only half: the walk, the MODS checks and the evidence files.
+    def plan(pid, into: nil, force: false)
       @holders = {}
       existing = holder(pid)
       if existing && !force
@@ -36,21 +52,31 @@ module Theseus
                                "Atlas has it as #{existing.noid}; pass --force to re-run")
       end
 
-      objects, parent_noid = plan(pid, into)
-      exports = objects.map { |object| export(object) }
-      exports.each { |item| parent_noid = create(item, parent_noid, existing) }
+      objects, anchor_pid, parent_noid = into ? [[into_object(pid)], nil, into] : walk(pid)
+      Plan.new(pid: pid, items: objects.map { |object| export(object) }, anchor_pid: anchor_pid,
+               parent_noid: parent_noid, existing: existing)
+    end
+
+    # The write half: create each item under the one before it.
+    def execute(plan)
+      parent_noid = plan.parent_noid
+      plan.items.map do |item|
+        step = create(item, parent_noid, plan.existing)
+        parent_noid = step.noid
+        step
+      end
     end
 
     private
 
-      def plan(pid, into)
-        if into
-          object = V1Object.from_solr(@v1.solr_document(pid))
-          raise FindingError.new(pid, "unsupported_model", "#{object.model.inspect} is not a phase 1 type") unless object.type
+      def into_object(pid)
+        object = V1Object.from_solr(@v1.solr_document(pid))
+        raise FindingError.new(pid, "unsupported_model", "#{object.model.inspect} is not a phase 1 type") unless object.type
 
-          return [[object], into]
-        end
+        object
+      end
 
+      def walk(pid)
         check_root!
         # With --force Atlas already holds the pid itself, so it must not end the walk.
         known = ->(candidate) { candidate == pid ? nil : holder(candidate)&.type }
@@ -62,7 +88,7 @@ module Theseus
 
         anchor_noid = holder(chain.anchor_pid).noid
         emit(:anchor_reached, pid: chain.anchor_pid, noid: anchor_noid)
-        [chain.top_down, anchor_noid]
+        [chain.top_down, chain.anchor_pid, anchor_noid]
       end
 
       def check_root!
@@ -125,7 +151,7 @@ module Theseus
           end
         @log.append(object.pid, noid, object.map_type, outcome)
         emit(:created, object: object, noid: noid, outcome: outcome)
-        noid
+        Step.new(object, noid, outcome, item.handle)
       end
 
       def create_container(item, parent_noid)
