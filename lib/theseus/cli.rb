@@ -56,8 +56,17 @@ module Theseus
 
       def config = @config ||= Config.new(@env)
 
-      def run_lookup(_pid, _options)
-        raise Error, "lookup is not built yet"
+      def v1_client
+        config.require_v1!
+        V1Client.new(base_url: config.v1_url, token: config.v1_jwt)
+      end
+
+      def run_lookup(pid, _options)
+        chain = Lineage.new(v1_client).walk(pid)
+        chain.objects.each do |object|
+          @out.puts([object.pid.ljust(16), object.type.to_s.ljust(11), object.title,
+                     object.handle && "(#{object.handle})"].compact.join(" "))
+        end
       end
 
       def run_export(_pid, _options)
