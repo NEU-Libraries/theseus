@@ -5,6 +5,7 @@ require_relative "atlas_gateway"
 require_relative "tui/screen"
 require_relative "tui/preflight"
 require_relative "tui/listener"
+require_relative "tui/demo_pids"
 
 module Theseus
   # The demo front end: `bin/theseus` with no arguments, or `bin/theseus tui`.
@@ -27,6 +28,7 @@ module Theseus
     def run
       @status = Preflight.new(@config, atlas: @atlas, now: @now).run
       @v1 ||= @config.v1_reader
+      @demo_pids = DemoPids.load(@config.demo_pids_path)
       @screen.header(@status)
     rescue ConfigError, V1AuthError => e
       stop_box("Theseus cannot start", e)
@@ -77,8 +79,19 @@ module Theseus
         error.exit_status
       end
 
+      OTHER_PID = "Another pid…"
+
+      # With demo pids, a list to pick from, with a way out to type any pid.
       def ask_pid
         @screen.puts
+        return type_pid if @demo_pids.empty?
+
+        choices = @demo_pids.map { |demo| { name: "#{demo.pid.ljust(15)} #{@screen.dim(demo.note)}", value: demo.pid } }
+        picked = @prompt.select("v1 pid to migrate:", choices + [{ name: OTHER_PID, value: nil }], per_page: 10)
+        picked || type_pid
+      end
+
+      def type_pid
         @prompt.ask("v1 pid to migrate:", required: true) do |q|
           q.validate(V1Client::PID, "Enter a v1 pid, such as neu:cj82kh734")
         end.strip

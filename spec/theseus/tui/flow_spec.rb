@@ -65,4 +65,47 @@ RSpec.describe Theseus::TUI, "the guided run" do
     expect(out.string).to include("● neu:col        already in v2 · n2", "1 object created")
     expect(atlas.calls.last(3).map(&:first)).to eq(%i[create_work put_mods complete])
   end
+
+  context "with demo pids" do
+    let(:tui) do
+      path = File.join(@dir, "demo_pids.yml")
+      File.write(path, "- pid: neu:cf\n  note: the whole chain\n- pid: neu:cf2\n  note: a sibling\n")
+      env = tui_env("THESEUS_RUN_DIR" => @dir, "THESEUS_DEMO_PIDS" => path)
+      described_class.new(config: Theseus::Config.new(env), out: out, prompt: prompt, atlas: atlas, v1: v1,
+                          now: tui_now, tty: false, pastel: Pastel.new(enabled: false))
+    end
+
+    it "offers them, with their notes, and migrates the one picked" do
+      answer("", "y", "n") # Enter picks the first
+      expect(tui.run).to eq(0)
+
+      expect(prompt.output.string).to include("neu:cf          the whole chain", "Another pid…")
+      expect(atlas.holders.keys).to include("neu:cf")
+    end
+
+    it "lets the presenter type any other pid" do
+      down = "\e[B"
+      answer("#{down}#{down}", "neu:cf2", "y", "n")
+      expect(tui.run).to eq(0)
+      expect(atlas.holders.keys).to include("neu:cf2")
+      expect(atlas.holders.keys).not_to include("neu:cf")
+    end
+  end
+
+  it "refuses a demo pid file that does not exist" do
+    env = tui_env("THESEUS_RUN_DIR" => @dir, "THESEUS_DEMO_PIDS" => File.join(@dir, "nope.yml"))
+    tui = described_class.new(config: Theseus::Config.new(env), out: out, prompt: prompt, atlas: atlas, v1: v1,
+                              now: tui_now, tty: false, pastel: Pastel.new(enabled: false))
+    expect(tui.run).to eq(2)
+    expect(out.string).to include("THESEUS_DEMO_PIDS", "does not exist")
+  end
+
+  it "takes the v2 links from CERBERUS_URL" do
+    env = tui_env("THESEUS_RUN_DIR" => @dir, "CERBERUS_URL" => "https://cerberus.example/")
+    tui = described_class.new(config: Theseus::Config.new(env), out: out, prompt: prompt, atlas: atlas, v1: v1,
+                              now: tui_now, tty: false, pastel: Pastel.new(enabled: false))
+    answer("neu:cf", "y", "n")
+    tui.run
+    expect(out.string).to include("https://cerberus.example/works/n3")
+  end
 end

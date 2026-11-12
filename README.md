@@ -29,6 +29,33 @@ and keeps the exported MODS in `runs/mods/`.
 Exit status: 0 success, 1 usage, 2 configuration, 3 v1 refused the request,
 4 a finding about the v1 record, 5 a v2 failure.
 
+## The TUI, for demos
+
+```
+bin/theseus            # or: bin/theseus tui
+```
+
+A guided run over the same core as `import`. It checks the v1 token, Atlas
+and the `neu:1` root first, then traces the ancestry, checks every record,
+shows the plan, and creates the objects only after you confirm. It needs a
+terminal; in a pipe it prints the usage instead. Set `NO_COLOR` for plain
+output.
+
+To offer a list of pids at the prompt, set `THESEUS_DEMO_PIDS=demo_pids.yml`.
+
+### A demo without live v1
+
+Record a run once, then replay it with no token and no network:
+
+```
+THESEUS_V1_RECORD=recordings/demo bin/theseus import neu:cj82kh734
+THESEUS_V1_REPLAY=recordings/demo bin/theseus
+```
+
+Recordings hold production MODS. Record public objects only. `recordings/`
+is git-ignored. Atlas is real in both modes, so a replayed demo still creates
+objects in the dev Atlas. Reset dev between demos.
+
 ## Tests
 
 ```

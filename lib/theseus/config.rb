@@ -42,6 +42,9 @@ module Theseus
     end
 
     def atlas_url = @env.fetch("ATLAS_URL")
+    # The YAML list of pids the TUI offers. Optional.
+    def demo_pids_path = value("THESEUS_DEMO_PIDS")
+
     # Cerberus, for the links the TUI shows. Optional.
     def cerberus_url = (value("CERBERUS_URL") || "http://localhost:3000").chomp("/")
     def v1_url = @env.fetch("V1_URL")

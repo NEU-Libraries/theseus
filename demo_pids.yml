@@ -1,0 +1,6 @@
+# The pids the TUI offers at its prompt (THESEUS_DEMO_PIDS=demo_pids.yml),
+# each with a note for the presenter. Public objects only.
+- pid: neu:cj82kh734
+  note: "Newspaper issue, 8 levels deep: shows the whole ancestry"
+- pid: neu:cj82k872d
+  note: "A sibling: only the Work is created"
