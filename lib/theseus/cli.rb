@@ -69,8 +69,18 @@ module Theseus
         end
       end
 
-      def run_export(_pid, _options)
-        raise Error, "export is not built yet"
+      # MODS to stdout; what import would make of it to stderr.
+      def run_export(pid, _options)
+        client = v1_client
+        object = V1Object.from_solr(client.solr_document(pid))
+        xml = client.mods(pid)
+        handle = Mods.handle(pid, xml)
+        @out.write(xml)
+        @out.puts unless xml.end_with?("\n")
+        @err.puts("#{pid}: #{object.model}, handle #{handle || 'none'}")
+        return unless object.type == :core_file && handle.nil?
+
+        @err.puts("#{pid}: import would refuse this CoreFile: missing_v1_handle")
       end
 
       def run_import(_pid, _options)

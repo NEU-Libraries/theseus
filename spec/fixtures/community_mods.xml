@@ -1,0 +1,7 @@
+<mods:mods xmlns:drs="https://repository.neu.edu/spec/v1" xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-4.xsd">
+    <mods:titleInfo>
+        <mods:title>University Library</mods:title>
+    </mods:titleInfo>
+    <mods:abstract>The mission of the Northeastern University Library is to advance academic excellence, enrich the research environment, and promote information literacy within the Northeastern University community by anticipating, providing for, and fostering the effective use of information resources.</mods:abstract>
+    <mods:identifier>neu:466</mods:identifier>
+</mods:mods>

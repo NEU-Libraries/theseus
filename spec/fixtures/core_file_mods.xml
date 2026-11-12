@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mods:mods xmlns:drs="https://repository.neu.edu/spec/v1" xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:niec="http://repository.neu.edu/schema/niec" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-5.xsd">
+<mods:titleInfo usage="primary">
+   <mods:title>East Boston Community News</mods:title>
+   <mods:subTitle>April 1, 1975</mods:subTitle>
+   <mods:partNumber>volume 5, number [15]</mods:partNumber>
+</mods:titleInfo>
+<mods:abstract>The East Boston Community News was an activist community newspaper produced primarily by volunteers biweekly between 1970 and 1989.</mods:abstract> <mods:note>Volume and number misprinted as "volume 5, number 14."</mods:note>
+<mods:name type="corporate" usage="primary" authority="local_lcnaf">
+   <mods:namePart>East Boston Community Communications, Inc.</mods:namePart>
+   <mods:role>
+      <mods:roleTerm authority="marcrelator" authorityURI="http://id.loc.gov/vocabulary/relators" valueURI="http://id.loc.gov/vocabulary/relators/pbl" type="text">Publisher</mods:roleTerm>
+   </mods:role>
+</mods:name>
+<mods:originInfo>
+   <mods:publisher supplied="yes">East Boston Community Communications, Inc.</mods:publisher>
+   <mods:place>
+      <mods:placeTerm type="text">Boston, Massachusetts</mods:placeTerm>
+   </mods:place>
+   <mods:dateCreated keyDate="yes" encoding="w3cdtf">1975-04-01</mods:dateCreated>
+</mods:originInfo>
+<mods:language>
+   <mods:languageTerm type="text" authority="iso639-2b" authorityURI="http://id.loc.gov/vocabulary/iso639-2" valueURI="http://id.loc.gov/vocabulary/iso639-2/eng">English</mods:languageTerm>
+</mods:language>
+<mods:genre authority="aat" authorityURI="http://vocab.getty.edu/aat" valueURI="http://vocab.getty.edu/page/aat/300026656">newspapers</mods:genre>
+<mods:typeOfResource>text</mods:typeOfResource>
+<mods:physicalDescription>
+   <mods:extent>1 document</mods:extent>
+   <mods:digitalOrigin>reformatted digital</mods:digitalOrigin>
+</mods:physicalDescription>
+<mods:subject authority="lcnaf" authorityURI="http://id.loc.gov/authorities/names">
+   <mods:geographic>East Boston (Boston, Mass.)</mods:geographic>
+   <mods:genre>Newspapers</mods:genre>
+</mods:subject>
+<mods:location>
+   <mods:physicalLocation>Northeastern University Library</mods:physicalLocation>
+   <mods:holdingSimple>
+      <mods:copyInformation>
+         <mods:subLocation>Archives and Special Collections</mods:subLocation>
+         <mods:shelfLocator>(C1.E1720)</mods:shelfLocator>
+      </mods:copyInformation>
+   </mods:holdingSimple>
+</mods:location>
+<mods:relatedItem type="host">
+   <mods:titleInfo>
+      <mods:title>East Boston Community News (C1.E1720)</mods:title>
+   </mods:titleInfo>
+</mods:relatedItem>
+<mods:identifier type="hdl" displayLabel="Permanent URL">http://hdl.handle.net/2047/D20201656</mods:identifier>
+<mods:accessCondition type="use and reproduction">Copyright Not Evaluated. The copyright and
+    related rights status of this Item has not been evaluated. Please refer to the organization that
+    has made the Item available for more information. You are free to use this Item in any way that
+    is permitted by the copyright and related rights legislation that applies to your
+    use.  http://rightsstatements.org/vocab/CNE/1.0/</mods:accessCondition>
+<mods:accessCondition type="use and reproduction">Requests for permission to publish material
+    should be discussed with the Northeastern University Library's Archives and Special
+    Collections.</mods:accessCondition>
+<mods:recordInfo>
+   <mods:recordContentSource>Northeastern University Libraries</mods:recordContentSource>
+   <mods:recordOrigin>human prepared</mods:recordOrigin>
+   <mods:descriptionStandard authority="marcdescription">RDA</mods:descriptionStandard>
+   <mods:languageOfCataloging>
+      <mods:languageTerm authority="iso639-2b" authorityURI="http://id.loc.gov/vocabulary/iso639-2" type="text" valueURI="http://id.loc.gov/vocabulary/iso639-2/eng">English</mods:languageTerm>
+   </mods:languageOfCataloging>
+</mods:recordInfo></mods:mods>
