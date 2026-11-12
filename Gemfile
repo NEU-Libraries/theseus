@@ -7,6 +7,7 @@ ruby "3.4.10"
 # Needs 1.29.4 for Work.create(handle:). An older gem drops the handle,
 # and /complete then mints a second one.
 gem "atlas_rb", "~> 1.29", ">= 1.29.4"
+gem "csv", "~> 3.3"
 gem "dotenv", "~> 3.1"
 gem "rexml", "~> 3.4"
 

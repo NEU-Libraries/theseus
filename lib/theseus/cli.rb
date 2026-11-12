@@ -83,8 +83,14 @@ module Theseus
         @err.puts("#{pid}: import would refuse this CoreFile: missing_v1_handle")
       end
 
-      def run_import(_pid, _options)
-        raise Error, "import is not built yet"
+      def run_import(pid, options)
+        client = v1_client
+        config.require_v2!
+        require_relative "atlas_gateway" # loads atlas_rb, which only import needs
+        Importer.new(v1: client, atlas: AtlasGateway.new, map: IdMap.new(config.map_path),
+                     mods_dir: File.join(File.dirname(config.map_path), "mods"),
+                     root_noid: config.v2_root, out: @out)
+                .run(pid, into: options[:into], force: options[:force])
       end
   end
 end
