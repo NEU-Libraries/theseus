@@ -38,18 +38,19 @@ RSpec.describe Theseus::Importer do
   let(:atlas) do
     Class.new do
       attr_reader :calls, :works
-      attr_accessor :drop_handle, :fail_on
+      attr_accessor :drop_handle, :drop_pid, :fail_on
 
       def initialize = (@calls = []) && (@works = {}) && (@keys = {}) && (@next = 0)
 
-      def create_community(parent) = container(:community, parent)
-      def create_collection(parent) = container(:collection, parent)
+      def create_community(parent, legacy_pid:) = container(:community, parent, legacy_pid)
+      def create_collection(parent, legacy_pid:) = container(:collection, parent, legacy_pid)
 
-      def create_work(parent, idempotency_key:, handle:)
+      def create_work(parent, idempotency_key:, handle:, legacy_pid:)
         @calls << [:create_work, parent, handle]
         failure!(:create_work)
         noid = (@keys[idempotency_key] ||= "w#{@next += 1}")
-        @works[noid] ||= { "id" => noid, "handle" => (drop_handle ? nil : handle) }
+        @works[noid] ||= { "id" => noid, "handle" => (drop_handle ? nil : handle),
+                           "legacy_pid" => (drop_pid ? nil : legacy_pid) }
       end
 
       def put_mods(noid, path)
@@ -66,10 +67,10 @@ RSpec.describe Theseus::Importer do
 
       private
 
-        def container(type, parent)
+        def container(type, parent, legacy_pid)
           @calls << [type, parent]
           failure!(type)
-          "c#{@next += 1}"
+          { "id" => "c#{@next += 1}", "legacy_pid" => (drop_pid ? nil : legacy_pid) }
         end
 
         def failure!(step)
@@ -143,6 +144,15 @@ RSpec.describe Theseus::Importer do
     expect { importer.run("neu:cf") }.to raise_error(Theseus::AtlasError, /not 2047\/D1.*w3/m)
     expect(atlas.calls.map(&:first)).not_to include(:complete)
     expect(map.include?("neu:cf")).to be(false)
+  end
+
+  it "stops at the first create when Atlas drops the pid" do
+    atlas.drop_pid = true
+    expect { importer.run("neu:cf") }.to raise_error(Theseus::AtlasError) { |e|
+      expect(e.noid).to eq("c1")
+      expect(e.message).to include("neu:466", "older than 0.6.279")
+    }
+    expect(atlas.calls).to eq([[:community, "root"]])
   end
 
   it "names the shell left behind when the MODS write fails" do

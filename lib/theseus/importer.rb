@@ -79,9 +79,15 @@ module Theseus
 
       def create_container(item, parent_noid)
         object = item.object
-        noid = atlas(object.pid) do
-          object.type == :community ? @atlas.create_community(parent_noid) : @atlas.create_collection(parent_noid)
+        created = atlas(object.pid) do
+          if object.type == :community
+            @atlas.create_community(parent_noid, legacy_pid: object.pid)
+          else
+            @atlas.create_collection(parent_noid, legacy_pid: object.pid)
+          end
         end
+        noid = created.fetch("id")
+        check_legacy_pid!(object.pid, created)
         atlas(object.pid, noid) { @atlas.put_mods(noid, item.mods_path) }
         noid
       end
@@ -89,9 +95,11 @@ module Theseus
       def create_work(item, parent_noid)
         pid = item.object.pid
         work = atlas(pid) do
-          @atlas.create_work(parent_noid, idempotency_key: UUID.work_key(pid), handle: item.handle)
+          @atlas.create_work(parent_noid, idempotency_key: UUID.work_key(pid), handle: item.handle,
+                                         legacy_pid: pid)
         end
         noid = work.fetch("id")
+        check_legacy_pid!(pid, work)
         check_handle!(pid, noid, work, item.handle, "on create; an Atlas older than 0.6.277 drops it. Not completing")
         atlas(pid, noid) { @atlas.put_mods(noid, item.mods_path) }
         atlas(pid, noid) { @atlas.complete(noid) }
@@ -105,6 +113,16 @@ module Theseus
 
         raise AtlasError.new(pid, "Atlas holds handle #{work['handle'].inspect}, not #{expected} (#{context}).",
                              noid: noid)
+      end
+
+      # An Atlas older than 0.6.279 ignores legacy_pid, and the object's v1 URL
+      # would then never redirect. Stop at the first such create.
+      def check_legacy_pid!(pid, created)
+        return if created["legacy_pid"] == pid
+
+        raise AtlasError.new(pid, "Atlas holds legacy_pid #{created['legacy_pid'].inspect}, not #{pid}. " \
+                                  "An Atlas older than 0.6.279 drops it; stopping before anything else is created.",
+                             noid: created.fetch("id"))
       end
 
       def atlas(pid, noid = nil)
