@@ -86,10 +86,11 @@ module Theseus
       def run_import(pid, options)
         client = v1_client
         config.require_v2!
+        obsolete = config.obsolete_vars
+        @err.puts("theseus: ignoring #{obsolete.join(', ')}; Theseus now asks Atlas for neu:1.") if obsolete.any?
         require_relative "atlas_gateway" # loads atlas_rb, which only import needs
-        Importer.new(v1: client, atlas: AtlasGateway.new, map: IdMap.new(config.map_path),
-                     mods_dir: File.join(File.dirname(config.map_path), "mods"),
-                     root_noid: config.v2_root, out: @out)
+        Importer.new(v1: client, atlas: AtlasGateway.new, log: RunLog.new(config.run_dir),
+                     mods_dir: File.join(config.run_dir, "mods"), out: @out)
                 .run(pid, into: options[:into], force: options[:force])
       end
   end

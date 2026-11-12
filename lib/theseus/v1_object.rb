@@ -15,7 +15,7 @@ module Theseus
           handle: Array(doc["identifier_tesim"]).find { |id| id.include?("hdl.handle.net") })
     end
 
-    # The v2 object_type that a map row and LegacyIdentifier use.
+    # The v2 object_type a run log row names.
     def map_type = type == :core_file ? "work" : type.to_s
   end
 end

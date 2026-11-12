@@ -18,6 +18,16 @@ RSpec.describe Theseus::Config do
 
   it "names every missing v2 variable" do
     expect { described_class.new({}).require_v2! }
-      .to raise_error(Theseus::ConfigError, /ATLAS_URL, ATLAS_JWT, V2_ROOT, THESEUS_MAP/)
+      .to raise_error(Theseus::ConfigError, "Set ATLAS_URL, ATLAS_JWT (see .env.example).")
+  end
+
+  it "keeps runs in runs/ unless THESEUS_RUN_DIR says otherwise" do
+    expect(described_class.new({}).run_dir).to eq("runs")
+    expect(described_class.new("THESEUS_RUN_DIR" => "rehearsal").run_dir).to eq("rehearsal")
+  end
+
+  it "names the variables it no longer reads" do
+    env = { "V2_ROOT" => "qz614p7", "THESEUS_MAP" => " " }
+    expect(described_class.new(env).obsolete_vars).to eq(["V2_ROOT"])
   end
 end

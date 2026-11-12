@@ -9,28 +9,36 @@ module Theseus
   # fetches every MODS, checks it, and keeps a copy as evidence. The second
   # writes to Atlas, top-down. A finding in the first half stops the run with
   # nothing created.
+  #
+  # Atlas, not a local file, says what v2 already has: every object Theseus
+  # creates holds its v1 pid as legacy_pid, and the walk asks Atlas for each
+  # ancestor's pid in turn. The root answers to neu:1.
   class Importer
     Export = Struct.new(:object, :mods_path, :handle)
+    Holder = Struct.new(:noid, :type)
 
-    def initialize(v1:, atlas:, map:, mods_dir:, root_noid:, out: $stdout)
+    ROOT_PID = "neu:1"
+    ATLAS_TYPES = { "Community" => :community, "Collection" => :collection, "Work" => :core_file }.freeze
+
+    def initialize(v1:, atlas:, log:, mods_dir:, out: $stdout)
       @v1 = v1
       @atlas = atlas
-      @map = map
+      @log = log
       @mods_dir = mods_dir
-      @root_noid = root_noid
       @out = out
     end
 
     def run(pid, into: nil, force: false)
-      @map.seed_root!(@root_noid)
-      if @map.include?(pid) && !force
+      @holders = {}
+      existing = holder(pid)
+      if existing && !force
         raise FindingError.new(pid, "already_imported",
-                               "the map has it as #{@map.noid_for(pid)}; pass --force to re-run")
+                               "Atlas has it as #{existing.noid}; pass --force to re-run")
       end
 
       objects, parent_noid = plan(pid, into)
       exports = objects.map { |object| export(object) }
-      exports.each { |item| parent_noid = create(item, parent_noid) }
+      exports.each { |item| parent_noid = create(item, parent_noid, existing) }
       @out.puts("#{pid}: nothing to create") if exports.empty?
     end
 
@@ -44,15 +52,49 @@ module Theseus
           return [[object], into]
         end
 
-        # With --force the pid itself is in the map, so it must not end the walk.
-        known = ->(candidate) { candidate == pid ? nil : @map.type_for(candidate) }
+        check_root!
+        # With --force Atlas already holds the pid itself, so it must not end the walk.
+        known = ->(candidate) { candidate == pid ? nil : holder(candidate)&.type }
         chain = Lineage.new(@v1, known: known).walk(pid)
         unless chain.anchor_pid
           top = chain.objects.last.pid
-          raise FindingError.new(pid, "unanchored", "the chain ends at #{top}, which the map does not have")
+          raise FindingError.new(pid, "unanchored", "the chain ends at #{top}, which Atlas does not hold")
         end
 
-        [chain.top_down, @map.noid_for(chain.anchor_pid)]
+        [chain.top_down, holder(chain.anchor_pid).noid]
+      end
+
+      def check_root!
+        root = holder(ROOT_PID)
+        unless root
+          raise ConfigError, "Atlas holds nothing for #{ROOT_PID}. Create the root Community with " \
+                             "legacy_pid \"#{ROOT_PID}\" (Cerberus's reset:data does this)."
+        end
+        return if root.type == :community
+
+        raise ConfigError, "Atlas has #{ROOT_PID} as #{root.noid}, a #{root.type}, not a Community."
+      end
+
+      # What Atlas holds for a pid, asked once per run. A tombstoned holder
+      # stops the run: nothing may be created under it, or in its place.
+      def holder(pid)
+        return @holders[pid] if @holders.key?(pid)
+
+        @holders[pid] = lookup(pid)
+      end
+
+      def lookup(pid)
+        found = atlas(pid) { @atlas.find_by_legacy_pid(pid) }
+        return nil unless found
+
+        if found["tombstoned"]
+          raise FindingError.new(pid, "tombstoned_in_v2", "Atlas holds it as #{found['id']}, which is tombstoned")
+        end
+
+        type = ATLAS_TYPES.fetch(found["type"]) do
+          raise AtlasError.new(pid, "Atlas holds it as #{found['id']}, an unexpected #{found['type'].inspect}")
+        end
+        Holder.new(found.fetch("id"), type)
       end
 
       def export(object)
@@ -69,27 +111,56 @@ module Theseus
         Export.new(object, path, handle)
       end
 
-      def create(item, parent_noid)
+      def create(item, parent_noid, existing)
         object = item.object
-        noid = object.type == :core_file ? create_work(item, parent_noid) : create_container(item, parent_noid)
-        @map.append(object.pid, noid, object.map_type)
-        @out.puts("#{object.pid} -> #{noid} (#{object.map_type}) #{object.title}")
+        noid, outcome =
+          if object.type == :core_file
+            noid = create_work(item, parent_noid)
+            [noid, existing&.noid == noid ? "replayed" : "created"]
+          else
+            create_container(item, parent_noid)
+          end
+        @log.append(object.pid, noid, object.map_type, outcome)
+        note = outcome == "created" ? "" : " [#{outcome}]"
+        @out.puts("#{object.pid} -> #{noid} (#{object.map_type}) #{object.title}#{note}")
         noid
       end
 
       def create_container(item, parent_noid)
         object = item.object
-        created = atlas(object.pid) do
+        noid, outcome = begin
+          [new_container(object, parent_noid), "created"]
+        rescue AtlasGateway::PidTaken => e
+          [adopt!(object, e.holder_id), "adopted"]
+        end
+        atlas(object.pid, noid) { @atlas.put_mods(noid, item.mods_path) }
+        [noid, outcome]
+      end
+
+      def new_container(object, parent_noid)
+        created =
           if object.type == :community
             @atlas.create_community(parent_noid, legacy_pid: object.pid)
           else
             @atlas.create_collection(parent_noid, legacy_pid: object.pid)
           end
-        end
-        noid = created.fetch("id")
         check_legacy_pid!(object.pid, created)
-        atlas(object.pid, noid) { @atlas.put_mods(noid, item.mods_path) }
-        noid
+        created.fetch("id")
+      rescue AtlasGateway::PidTaken
+        raise
+      rescue AtlasGateway::Failure => e
+        raise AtlasError.new(object.pid, e.message)
+      end
+
+      # Atlas already holds the pid: a run that crashed after a create, or a
+      # --force re-run. Carry on with the holder, after checking that it is
+      # the same kind of object.
+      def adopt!(object, holder_id)
+        found = lookup(object.pid)
+        return holder_id if found && found.noid == holder_id && found.type == object.type
+
+        raise AtlasError.new(object.pid, "Atlas says #{holder_id} holds this pid, but it is not a " \
+                                         "#{object.type} Theseus can adopt (#{found.to_h.inspect}).")
       end
 
       def create_work(item, parent_noid)

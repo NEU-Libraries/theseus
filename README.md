@@ -21,6 +21,11 @@ bin/theseus import neu:xyz                # create neu:xyz, and missing ancestor
 bin/theseus import neu:xyz --into <noid>  # create neu:xyz only, under <noid>
 ```
 
+`import` sends each v1 pid to Atlas, so Cerberus redirects the v1 URL with no
+load step. It asks Atlas which ancestors v2 already has, and starts from the
+object Atlas holds for `neu:1`. Each run adds rows to `runs/import_log.csv`
+and keeps the exported MODS in `runs/mods/`.
+
 Exit status: 0 success, 1 usage, 2 configuration, 3 v1 refused the request,
 4 a finding about the v1 record, 5 a v2 failure.
 
